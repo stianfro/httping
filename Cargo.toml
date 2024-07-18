@@ -5,3 +5,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+[profile.release]
+strip = true
+opt-level = "z"
+lto = true
+codege-units = 1
+panic = "abort"
