@@ -2,6 +2,12 @@
 
 HTTPing allows you to "ping" a http endpoint indefinitely with timestamps.
 
+## Installation
+
+```
+$ cargo install --git https://github.com/stianfro/httping.git
+```
+
 ## Usage
 
 ```
