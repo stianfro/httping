@@ -1,6 +1,7 @@
 use chrono::Local;
 use reqwest::Error;
 use std::env::{self};
+use std::time::Instant;
 use url::Url;
 
 #[tokio::main]
@@ -21,16 +22,27 @@ async fn main() -> Result<(), Error> {
 
     let url = &args[1];
 
-    if Url::parse(url).is_err() {
-        eprintln!("Invalid URL: {}", url);
-        std::process::exit(1);
+    println!("HTTPing {}", url);
+
+    loop {
+        let start = Instant::now();
+        if Url::parse(url).is_err() {
+            eprintln!("Invalid URL: {}", url);
+            std::process::exit(1);
+        }
+        let duration = start.elapsed();
+
+        let now = Local::now();
+        let response = reqwest::get(url).await?;
+        let status_code = response.status();
+
+        // println!(
+        //     "{} Status \"{}\" from {} time={:?}",
+        //     now.to_rfc3339(),
+        //     status_code,
+        //     url,
+        //     duration
+        // );
+        println!("{} {} {:?}", now.to_rfc3339(), status_code, duration);
     }
-
-    let now = Local::now();
-    let response = reqwest::get(url).await?;
-    let status_code = response.status();
-
-    println!("{} {} {}", now.to_rfc3339(), status_code, url);
-
-    Ok(())
 }
