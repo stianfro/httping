@@ -1,6 +1,6 @@
 # HTTPing
 
-HTTPing allows you to "ping" a http endpoint indefinitely with timestamps.
+HTTPing allows you to "ping" an http endpoint indefinitely with timestamps.
 
 ## Installation
 
