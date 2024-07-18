@@ -36,13 +36,6 @@ async fn main() -> Result<(), Error> {
         let response = reqwest::get(url).await?;
         let status_code = response.status();
 
-        // println!(
-        //     "{} Status \"{}\" from {} time={:?}",
-        //     now.to_rfc3339(),
-        //     status_code,
-        //     url,
-        //     duration
-        // );
         println!("{} {} {:?}", now.to_rfc3339(), status_code, duration);
     }
 }
