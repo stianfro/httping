@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 chrono = "0.4.38"
 reqwest = "0.12.8"
-tokio = { version = "1.40.0", features = ["full"] }
+tokio = { version = "1.41.0", features = ["full"] }
 url = "2.5.2"
 
 [profile.release]
