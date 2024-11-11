@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 chrono = "0.4.38"
-reqwest = "0.12.8"
+reqwest = "0.12.9"
 tokio = { version = "1.41.0", features = ["full"] }
 url = "2.5.3"
 
