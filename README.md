@@ -71,6 +71,31 @@ Options:
 
 Durations accept values such as `250ms`, `1s`, and `2m`.
 
+### Local dashboard
+
+Start the local dashboard for a target:
+
+```console
+$ httping serve https://example.com
+HTTPing https://example.com/
+resolved: 93.184.216.34:443
+dashboard: http://127.0.0.1:52143/
+```
+
+HTTPing selects a free local port and opens the dashboard in the default
+browser. The dashboard shows live summary cards, a latency chart, and recent
+probe results. It binds only to `127.0.0.1`.
+
+Use `--no-open` to keep the browser closed, `--port` to select a fixed port,
+and `--history` to set the number of recent results kept in memory:
+
+```sh
+httping serve --no-open --port 8080 --history 500 https://example.com
+```
+
+The server stays in the foreground until Ctrl-C. Run it through a shell job,
+systemd, or a container when it must continue in the background.
+
 ```console
 $ httping --count 2 https://example.com
 HTTPing https://example.com/

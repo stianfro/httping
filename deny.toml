@@ -18,7 +18,12 @@ ignore = []
 multiple-versions = "deny"
 wildcards = "deny"
 deny = []
-skip = []
+# Serde 1 uses syn 3 while Tokio and URL's ICU dependencies still use syn 2.
+# Keep this exact exception until the dependency graph converges.
+skip = [
+  { crate = "syn@2" },
+  { crate = "syn@3" },
+]
 skip-tree = []
 
 [licenses]
