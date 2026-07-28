@@ -1,13 +1,30 @@
 [package]
 name = "httping"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
+rust-version = "1.96.1"
+authors = ["Stian Frøystein <26657174+stianfro@users.noreply.github.com>"]
+description = "Ping HTTP and HTTPS endpoints and report response latency"
+license = "MIT"
+repository = "https://github.com/stianfro/httping"
+homepage = "https://github.com/stianfro/httping"
+readme = "README.md"
+keywords = ["cli", "http", "latency", "monitoring", "ping"]
+categories = ["command-line-utilities", "network-programming"]
+publish = false
+
+[package.metadata.dist]
+dist = true
 
 [dependencies]
-chrono = "0.4.42"
-reqwest = "0.12.23"
-tokio = { version = "1.45.1", features = ["full"] }
-url = "2.5.4"
+chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
+clap = "4.6.4"
+humantime = "2.4.0"
+reqwest = { version = "0.13.4", default-features = false, features = ["rustls"] }
+tokio = { version = "1.53.1", features = ["macros", "net", "rt-multi-thread", "signal", "time"] }
+
+[dev-dependencies]
+tokio = { version = "1.53.1", features = ["io-util"] }
 
 [profile.release]
 strip = true
@@ -16,3 +33,40 @@ lto = true
 codegen-units = 1
 panic = "abort"
 
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+unused_qualifications = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+
+# Config for 'dist'
+[workspace.metadata.dist]
+# The preferred dist version to use in CI (Cargo.toml SemVer syntax)
+cargo-dist-version = "0.32.0"
+# CI backends to support
+ci = "github"
+# The installers to generate for each app
+installers = ["shell", "powershell"]
+# Target platforms to build apps for (Rust target-triple syntax)
+targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-musl", "x86_64-apple-darwin", "x86_64-unknown-linux-musl", "x86_64-pc-windows-msvc"]
+# Checksums to generate for each App
+checksum = "sha256"
+# Generate and dist a source tarball
+source-tarball = true
+# Path that installers should place binaries in
+install-path = "CARGO_HOME"
+# Whether to install an updater program
+install-updater = false
+
+[workspace.metadata.dist.github-action-commits]
+"actions/checkout" = "08c6903cd8c0fde910a37f88322edcfb5dd907a8"
+"actions/upload-artifact" = "ea165f8d65b6e75b540449e92b4886f43607fa02"
+"actions/download-artifact" = "d3f86a106a0bac45b974a628896c90dbdf5c8093"
