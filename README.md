@@ -20,6 +20,39 @@ On Windows PowerShell:
 powershell -ExecutionPolicy Bypass -c "irm https://github.com/stianfro/httping/releases/download/v0.1.0/httping-installer.ps1 | iex"
 ```
 
+### Add HTTPing to PATH
+
+The installer puts `httping` in `$CARGO_HOME/bin`, or in
+`$HOME/.cargo/bin` when `CARGO_HOME` is not set. It tries to update the
+shell startup files automatically. Restart the shell after installation.
+
+If `httping --version` still reports that the command is not found, run the
+command for your shell once to add the default install directory permanently.
+
+For Bash:
+
+```bash
+printf '\nexport PATH="$HOME/.cargo/bin:$PATH"\n' >> "$HOME/.bashrc"
+source "$HOME/.bashrc"
+```
+
+For Zsh:
+
+```zsh
+printf '\nexport PATH="$HOME/.cargo/bin:$PATH"\n' >> "$HOME/.zshrc"
+source "$HOME/.zshrc"
+```
+
+For Fish:
+
+```fish
+fish_add_path --universal "$HOME/.cargo/bin"
+```
+
+If `CARGO_HOME` points to another directory, use `$CARGO_HOME/bin` instead.
+The PowerShell installer updates the user PATH. Open a new PowerShell window
+after it finishes.
+
 ## Usage
 
 ```text
