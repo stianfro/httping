@@ -30,6 +30,14 @@ jobs:
       - name: Install tools
         uses: taiki-e/install-action@41049aa56687c35e0afa74eed4f09cec4f9afabf
         with:
-          tool: cargo-deny@0.20.2,cargo-dist@0.32.0,just@1.55.1,yq@4.47.2
+          tool: cargo-deny@0.20.2,cargo-dist@0.32.0,just@1.55.1
+      - name: Install yq
+        run: |
+          curl --proto '=https' --tlsv1.2 -LsSf \
+            https://github.com/mikefarah/yq/releases/download/v4.47.2/yq_linux_amd64 \
+            -o /tmp/yq
+          echo "1bb99e1019e23de33c7e6afc23e93dad72aad6cf2cb03c797f068ea79814ddb0  /tmp/yq" \
+            | sha256sum --check
+          sudo install -m 0755 /tmp/yq /usr/local/bin/yq
       - name: Run gates
         run: just ci
