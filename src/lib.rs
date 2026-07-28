@@ -1,4 +1,6 @@
-//! Command-line parsing, probing, and dashboard support for `HTTPing`.
+//! Command-line parsing, probing, dashboard support, and metrics for `HTTPing`.
+
+mod telemetry;
 
 use std::collections::VecDeque;
 use std::convert::Infallible;
@@ -38,6 +40,12 @@ pub struct Cli {
 
     /// HTTP or HTTPS URL to probe.
     pub url: Url,
+
+    /// Enable OpenTelemetry metrics over OTLP HTTP/protobuf.
+    pub otlp: bool,
+
+    /// Stable name attached to the target's exported metrics.
+    pub target_name: Option<String>,
 }
 
 /// `HTTPing` operating mode.
@@ -90,6 +98,8 @@ impl Cli {
                 interval: required_value(serve, "interval"),
                 timeout: required_value(serve, "timeout"),
                 url: required_value::<Url>(serve, "url").clone(),
+                otlp: serve.get_flag("otlp"),
+                target_name: serve.get_one::<String>("target-name").cloned(),
             };
         }
 
@@ -100,6 +110,8 @@ impl Cli {
             interval: required_value(matches, "interval"),
             timeout: required_value(matches, "timeout"),
             url: required_value::<Url>(matches, "url").clone(),
+            otlp: matches.get_flag("otlp"),
+            target_name: matches.get_one::<String>("target-name").cloned(),
         }
     }
 }
@@ -176,12 +188,28 @@ fn common_arguments() -> Vec<Arg> {
             .help("Maximum time for DNS setup and for each probe")
             .default_value("10s")
             .value_parser(parse_duration),
+        Arg::new("otlp")
+            .long("otlp")
+            .help("Export OpenTelemetry metrics over OTLP HTTP/protobuf")
+            .action(clap::ArgAction::SetTrue),
+        Arg::new("target-name")
+            .long("target-name")
+            .value_name("NAME")
+            .help("Stable target name for exported metrics")
+            .value_parser(parse_target_name),
         Arg::new("url")
             .value_name("URL")
             .help("HTTP or HTTPS URL to probe")
             .required(true)
             .value_parser(parse_url),
     ]
+}
+
+fn parse_target_name(value: &str) -> Result<String, String> {
+    if value.trim().is_empty() {
+        return Err("target name must not be empty".to_owned());
+    }
+    Ok(value.to_owned())
 }
 
 fn parse_positive_usize(value: &str) -> Result<usize, String> {
@@ -516,15 +544,26 @@ fn classify_error(error: &reqwest::Error) -> ErrorKind {
 
 /// Run `HTTPing` and return its process exit status.
 pub async fn run(cli: Cli) -> ExitCode {
-    let stdout = io::stdout();
-    let stderr = io::stderr();
-    run_with_writers(cli, &mut stdout.lock(), &mut stderr.lock()).await
+    let mut stdout = io::stdout();
+    let mut stderr = io::stderr();
+    run_with_writers(cli, &mut stdout, &mut stderr).await
 }
 
 async fn run_with_writers(cli: Cli, output: &mut impl Write, errors: &mut impl Write) -> ExitCode {
     let prepared = match prepare(&cli, errors).await {
         Ok(prepared) => prepared,
         Err(status) => return status,
+    };
+    let mut telemetry = match telemetry::Telemetry::from_environment(
+        cli.otlp,
+        cli.target_name.as_deref(),
+        &cli.url,
+    ) {
+        Ok(telemetry) => telemetry,
+        Err(error) => {
+            let _ = writeln!(errors, "httping: {error}");
+            return ExitCode::FAILURE;
+        }
     };
     write_header(&cli, &prepared, output);
 
@@ -534,12 +573,18 @@ async fn run_with_writers(cli: Cli, output: &mut impl Write, errors: &mut impl W
                 &cli,
                 &prepared,
                 count,
-                |event| write_event(event, output),
+                |event| {
+                    write_event(event, output);
+                    if let Some(telemetry) = telemetry.as_ref() {
+                        telemetry.record(event);
+                    }
+                },
                 errors,
             )
             .await;
             let _ = write!(output, "{}", result.statistics.summary());
-            if count.is_some() && result.statistics.failed {
+            let export_failed = finish_telemetry(telemetry.take(), errors);
+            if count.is_some() && (result.statistics.failed || export_failed) {
                 ExitCode::FAILURE
             } else {
                 ExitCode::SUCCESS
@@ -549,8 +594,33 @@ async fn run_with_writers(cli: Cli, output: &mut impl Write, errors: &mut impl W
             port,
             no_open,
             history,
-        } => run_dashboard(&cli, &prepared, port, no_open, history, output, errors).await,
+        } => {
+            run_dashboard(
+                &cli,
+                &prepared,
+                DashboardOptions {
+                    port,
+                    no_open,
+                    history,
+                },
+                telemetry,
+                output,
+                errors,
+            )
+            .await
+        }
     }
+}
+
+fn finish_telemetry(telemetry: Option<telemetry::Telemetry>, errors: &mut impl Write) -> bool {
+    let Some(telemetry) = telemetry else {
+        return false;
+    };
+    let export_errors = telemetry.finish();
+    for error in &export_errors {
+        let _ = writeln!(errors, "httping: {error}");
+    }
+    !export_errors.is_empty()
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -627,16 +697,21 @@ async fn dashboard_events(
     Sse::new(stream).keep_alive(KeepAlive::default())
 }
 
-async fn run_dashboard(
-    cli: &Cli,
-    prepared: &Prepared,
+struct DashboardOptions {
     port: u16,
     no_open: bool,
     history: usize,
+}
+
+async fn run_dashboard(
+    cli: &Cli,
+    prepared: &Prepared,
+    options: DashboardOptions,
+    telemetry: Option<telemetry::Telemetry>,
     output: &mut impl Write,
     errors: &mut impl Write,
 ) -> ExitCode {
-    let listener = match TcpListener::bind(("127.0.0.1", port)).await {
+    let listener = match TcpListener::bind(("127.0.0.1", options.port)).await {
         Ok(listener) => listener,
         Err(error) => {
             let _ = writeln!(errors, "httping: could not bind dashboard: {error}");
@@ -650,8 +725,12 @@ async fn run_dashboard(
             return ExitCode::FAILURE;
         }
     };
-    let dashboard = Arc::new(RwLock::new(DashboardState::new(cli, prepared, history)));
-    let (events, _) = broadcast::channel(history.clamp(16, 4_096));
+    let dashboard = Arc::new(RwLock::new(DashboardState::new(
+        cli,
+        prepared,
+        options.history,
+    )));
+    let (events, _) = broadcast::channel(options.history.clamp(16, 4_096));
     let web_state = WebState {
         dashboard: Arc::clone(&dashboard),
         events: events.clone(),
@@ -672,10 +751,11 @@ async fn run_dashboard(
 
     let url = format!("http://{address}/");
     let _ = writeln!(output, "dashboard: {url}");
-    if !no_open && open::that_detached(&url).is_err() {
+    if !options.no_open && open::that_detached(&url).is_err() {
         let _ = writeln!(errors, "httping: could not open the dashboard in a browser");
     }
 
+    let mut telemetry = telemetry;
     let result = probe_loop(
         cli,
         prepared,
@@ -687,6 +767,9 @@ async fn run_dashboard(
                 .expect("dashboard lock is not poisoned")
                 .record(event);
             let _ = events.send(event.clone());
+            if let Some(telemetry) = telemetry.as_ref() {
+                telemetry.record(event);
+            }
         },
         errors,
     )
@@ -702,12 +785,18 @@ async fn run_dashboard(
         }
     }
     let _ = write!(output, "{}", result.statistics.summary());
+    let _ = finish_telemetry(telemetry.take(), errors);
     let _ = result.interrupted;
     ExitCode::SUCCESS
 }
 
 fn safe_target_name(url: &Url) -> String {
     let host = url.host_str().unwrap_or("unknown");
+    let host = if host.contains(':') && !host.starts_with('[') {
+        format!("[{host}]")
+    } else {
+        host.to_owned()
+    };
     let port = url.port_or_known_default().unwrap_or(0);
     format!("{}://{host}:{port}{}", url.scheme(), url.path())
 }
@@ -735,6 +824,8 @@ mod tests {
         assert_eq!(cli.mode, Mode::Probe { count: None });
         assert_eq!(cli.interval, Duration::from_secs(1));
         assert_eq!(cli.timeout, Duration::from_secs(10));
+        assert!(!cli.otlp);
+        assert_eq!(cli.target_name, None);
 
         let cli = Cli::try_parse_from([
             "httping",
@@ -744,12 +835,17 @@ mod tests {
             "250ms",
             "--timeout",
             "2m",
+            "--otlp",
+            "--target-name",
+            "public-api",
             "http://example.com",
         ])
         .unwrap();
         assert_eq!(cli.mode, Mode::Probe { count: Some(2) });
         assert_eq!(cli.interval, Duration::from_millis(250));
         assert_eq!(cli.timeout, Duration::from_mins(2));
+        assert!(cli.otlp);
+        assert_eq!(cli.target_name.as_deref(), Some("public-api"));
     }
 
     #[test]
@@ -779,6 +875,10 @@ mod tests {
             safe_target_name(&cli.url),
             "https://example.com:443/private"
         );
+        assert_eq!(
+            safe_target_name(&Url::parse("http://[::1]/health").unwrap()),
+            "http://[::1]:80/health"
+        );
     }
 
     #[test]
@@ -789,6 +889,7 @@ mod tests {
             vec!["httping", "not-a-url"],
             vec!["httping", "https://example.com", "extra"],
             vec!["httping", "serve", "--history", "0", "https://example.com"],
+            vec!["httping", "--target-name", "", "https://example.com"],
         ] {
             assert_ne!(
                 Cli::try_parse_from(arguments).unwrap_err().kind(),
