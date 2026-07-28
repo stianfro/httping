@@ -55,24 +55,28 @@ after it finishes.
 
 ## Usage
 
-```text
+```console
+❯ httping --help
+Ping an HTTP endpoint and report response latency
+
 Usage: httping [OPTIONS] <URL>
        httping [OPTIONS] [URL] <COMMAND>
 
 Commands:
   serve  Show live probe statistics in a local web dashboard
+  help   Print this message or the help of the given subcommand(s)
 
 Arguments:
   <URL>  HTTP or HTTPS URL to probe
 
 Options:
-  -c, --count <COUNT>          Number of probes to send. By default, probes continue until Ctrl-C
-  -i, --interval <DURATION>    Minimum time between probe starts [default: 1s]
-  -t, --timeout <DURATION>     Maximum time for DNS setup and for each probe [default: 10s]
-      --otlp                   Export OpenTelemetry metrics over OTLP HTTP/protobuf
-      --target-name <NAME>     Stable target name for exported metrics
-  -h, --help                   Print help
-  -V, --version                Print version
+  -c, --count <COUNT>        Number of probes to send. By default, probes continue until Ctrl-C
+  -i, --interval <DURATION>  Minimum time between probe starts [default: 1s]
+  -t, --timeout <DURATION>   Maximum time for DNS setup and for each probe [default: 10s]
+      --otlp                 Export OpenTelemetry metrics over OTLP HTTP/protobuf
+      --target-name <NAME>   Stable target name for exported metrics
+  -h, --help                 Print help
+  -V, --version              Print version
 ```
 
 Durations accept values such as `250ms`, `1s`, and `2m`.
@@ -91,6 +95,8 @@ dashboard: http://127.0.0.1:52143/
 HTTPing selects a free local port and opens the dashboard in the default
 browser. The dashboard shows live summary cards, a latency chart, and recent
 probe results. It binds only to `127.0.0.1`.
+
+![HTTPing live dashboard](docs/assets/httping-dashboard.gif)
 
 Use `--no-open` to keep the browser closed, `--port` to select a fixed port,
 and `--history` to set the number of recent results kept in memory:
