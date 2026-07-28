@@ -2,6 +2,8 @@
 
 HTTPing probes an HTTP or HTTPS endpoint and reports response latency.
 
+![HTTPing live dashboard](docs/assets/httping-dashboard.gif)
+
 ## Installation
 
 Download an archive or run an installer from the
@@ -95,8 +97,6 @@ dashboard: http://127.0.0.1:52143/
 HTTPing selects a free local port and opens the dashboard in the default
 browser. The dashboard shows live summary cards, a latency chart, and recent
 probe results. It binds only to `127.0.0.1`.
-
-![HTTPing live dashboard](docs/assets/httping-dashboard.gif)
 
 Use `--no-open` to keep the browser closed, `--port` to select a fixed port,
 and `--history` to set the number of recent results kept in memory:
