@@ -18,11 +18,14 @@ ignore = []
 multiple-versions = "deny"
 wildcards = "deny"
 deny = []
-# Serde 1 uses syn 3 while Tokio and URL's ICU dependencies still use syn 2.
+# Serde and OpenTelemetry use syn 3 while Tokio and URL's ICU dependencies use syn 2.
 # Keep this exact exception until the dependency graph converges.
 skip = [
   { crate = "syn@2" },
   { crate = "syn@3" },
+  # OpenTelemetry uses rand with getrandom 0.3 while Rustls build tooling uses 0.4.
+  { crate = "getrandom@0.3" },
+  { crate = "getrandom@0.4" },
 ]
 skip-tree = []
 
