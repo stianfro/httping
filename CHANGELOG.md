@@ -2,6 +2,13 @@
 
 All notable changes to HTTPing are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- A loopback-only live dashboard with summary cards, a latency chart, and recent probe results.
+- Configurable dashboard ports, browser opening, and bounded in-memory history.
+
 ## [0.1.0] - 2026-07-28
 
 ### Added
