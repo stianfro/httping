@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  checks:
+    name: Just gates
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - name: Install Rust
+        run: rustup show active-toolchain
+      - name: Cache Cargo files
+        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+      - name: Install tools
+        uses: taiki-e/install-action@6c3dd8e5e0e259cd4b0244b1f0042f4e42f58f85
+        with:
+          tool: cargo-deny@0.20.2,cargo-dist@0.32.0,just@1.55.1,yq@4.47.2
+      - name: Run gates
+        run: just ci
