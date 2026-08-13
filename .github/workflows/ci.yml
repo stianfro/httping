@@ -26,9 +26,9 @@ jobs:
       - name: Install Rust
         run: rustup show active-toolchain
       - name: Cache Cargo files
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
       - name: Install tools
-        uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60
+        uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026
         with:
           tool: cargo-deny@0.20.2,cargo-dist@0.32.0,just@1.55.1
       - name: Install yq
